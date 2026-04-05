@@ -12,6 +12,17 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog'
+import { Input } from '@/components/ui/input'
+import { Textarea } from '@/components/ui/textarea'
+import {
   RefreshCw,
   Activity,
   CheckCircle2,
@@ -24,6 +35,9 @@ import {
   ChevronUp,
   Users,
   User,
+  Plus,
+  Send,
+  MessageSquare,
 } from 'lucide-react'
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000'
@@ -99,8 +113,37 @@ function formatDate(dateStr: string): string {
   return date.toLocaleDateString()
 }
 
-function SessionRow({ session }: { session: Session }) {
+function SessionRow({ session, onRefresh }: { session: Session; onRefresh: () => void }) {
   const [expanded, setExpanded] = useState(false)
+  const [message, setMessage] = useState('')
+  const [sending, setSending] = useState(false)
+  const [sendResult, setSendResult] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
+
+  const canSendMessage = session.status === 'running' || session.status === 'suspended'
+
+  const handleSendMessage = async () => {
+    if (!message.trim()) return
+    setSending(true)
+    setSendResult(null)
+    try {
+      const resp = await fetch(`${API_BASE}/api/sessions/${session.session_id}/message`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: message.trim() }),
+      })
+      if (!resp.ok) {
+        const errData = await resp.json().catch(() => ({ detail: resp.statusText }))
+        throw new Error(errData.detail || `HTTP ${resp.status}`)
+      }
+      setSendResult({ type: 'success', text: 'Message sent!' })
+      setMessage('')
+      setTimeout(() => onRefresh(), 2000)
+    } catch (err) {
+      setSendResult({ type: 'error', text: err instanceof Error ? err.message : 'Failed to send' })
+    } finally {
+      setSending(false)
+    }
+  }
 
   return (
     <>
@@ -154,42 +197,81 @@ function SessionRow({ session }: { session: Session }) {
       {expanded && (
         <TableRow className="bg-slate-50">
           <TableCell colSpan={7} className="p-4">
-            <div className="grid grid-cols-2 gap-4 text-sm">
-              <div>
-                <span className="font-medium text-slate-600">Session ID:</span>
-                <span className="ml-2 font-mono text-slate-800">{session.session_id}</span>
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4 text-sm">
+                <div>
+                  <span className="font-medium text-slate-600">Session ID:</span>
+                  <span className="ml-2 font-mono text-slate-800">{session.session_id}</span>
+                </div>
+                <div>
+                  <span className="font-medium text-slate-600">User:</span>
+                  <span className="ml-2 text-slate-800">{session.requesting_user_email || 'N/A'}</span>
+                </div>
+                <div>
+                  <span className="font-medium text-slate-600">Status Detail:</span>
+                  <span className="ml-2 text-slate-800">{session.status_detail || 'N/A'}</span>
+                </div>
+                <div>
+                  <span className="font-medium text-slate-600">Status Enum:</span>
+                  <span className="ml-2 text-slate-800">{session.status_enum || 'N/A'}</span>
+                </div>
+                <div>
+                  <span className="font-medium text-slate-600">Created:</span>
+                  <span className="ml-2 text-slate-800">{new Date(session.created_at).toLocaleString()}</span>
+                </div>
+                <div>
+                  <span className="font-medium text-slate-600">Updated:</span>
+                  <span className="ml-2 text-slate-800">{session.updated_at ? new Date(session.updated_at).toLocaleString() : 'N/A'}</span>
+                </div>
+                {session.url && (
+                  <div className="col-span-2">
+                    <span className="font-medium text-slate-600">URL:</span>
+                    <a
+                      href={session.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="ml-2 text-blue-600 hover:underline"
+                    >
+                      {session.url}
+                    </a>
+                  </div>
+                )}
               </div>
-              <div>
-                <span className="font-medium text-slate-600">User:</span>
-                <span className="ml-2 text-slate-800">{session.requesting_user_email || 'N/A'}</span>
-              </div>
-              <div>
-                <span className="font-medium text-slate-600">Status Detail:</span>
-                <span className="ml-2 text-slate-800">{session.status_detail || 'N/A'}</span>
-              </div>
-              <div>
-                <span className="font-medium text-slate-600">Status Enum:</span>
-                <span className="ml-2 text-slate-800">{session.status_enum || 'N/A'}</span>
-              </div>
-              <div>
-                <span className="font-medium text-slate-600">Created:</span>
-                <span className="ml-2 text-slate-800">{new Date(session.created_at).toLocaleString()}</span>
-              </div>
-              <div>
-                <span className="font-medium text-slate-600">Updated:</span>
-                <span className="ml-2 text-slate-800">{session.updated_at ? new Date(session.updated_at).toLocaleString() : 'N/A'}</span>
-              </div>
-              {session.url && (
-                <div className="col-span-2">
-                  <span className="font-medium text-slate-600">URL:</span>
-                  <a
-                    href={session.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="ml-2 text-blue-600 hover:underline"
-                  >
-                    {session.url}
-                  </a>
+
+              {canSendMessage && (
+                <div className="border-t border-slate-200 pt-4">
+                  <div className="flex items-center gap-2 mb-2">
+                    <MessageSquare className="w-4 h-4 text-blue-600" />
+                    <span className="text-sm font-medium text-slate-700">Send a message to Devin</span>
+                  </div>
+                  <div className="flex gap-2">
+                    <Input
+                      value={message}
+                      onChange={(e) => setMessage(e.target.value)}
+                      placeholder="Type instructions or feedback for Devin..."
+                      className="flex-1"
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' && !e.shiftKey) {
+                          e.preventDefault()
+                          handleSendMessage()
+                        }
+                      }}
+                      onClick={(e) => e.stopPropagation()}
+                    />
+                    <button
+                      onClick={(e) => { e.stopPropagation(); handleSendMessage() }}
+                      disabled={sending || !message.trim()}
+                      className="flex items-center gap-2 px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                      Send
+                    </button>
+                  </div>
+                  {sendResult && (
+                    <div className={`mt-2 text-sm ${sendResult.type === 'success' ? 'text-green-600' : 'text-red-600'}`}>
+                      {sendResult.text}
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -208,6 +290,12 @@ function App() {
   const [statusFilter, setStatusFilter] = useState<string>('all')
   const [userFilter, setUserFilter] = useState<string>('all')
   const [availableUsers, setAvailableUsers] = useState<string[]>([])
+
+  const [createOpen, setCreateOpen] = useState(false)
+  const [newPrompt, setNewPrompt] = useState('')
+  const [newTitle, setNewTitle] = useState('')
+  const [creating, setCreating] = useState(false)
+  const [createError, setCreateError] = useState<string | null>(null)
 
   const fetchSessions = useCallback(async (isRefresh = false) => {
     if (isRefresh) setRefreshing(true)
@@ -244,6 +332,37 @@ function App() {
     return () => clearInterval(interval)
   }, [fetchSessions])
 
+  const handleCreateSession = async () => {
+    if (!newPrompt.trim()) return
+    setCreating(true)
+    setCreateError(null)
+    try {
+      const body: Record<string, string> = { prompt: newPrompt.trim() }
+      if (newTitle.trim()) body.title = newTitle.trim()
+      const resp = await fetch(`${API_BASE}/api/sessions`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      })
+      if (!resp.ok) {
+        const errData = await resp.json().catch(() => ({ detail: resp.statusText }))
+        throw new Error(errData.detail || `HTTP ${resp.status}`)
+      }
+      const data = await resp.json()
+      setCreateOpen(false)
+      setNewPrompt('')
+      setNewTitle('')
+      fetchSessions(true)
+      if (data.url) {
+        window.open(data.url, '_blank')
+      }
+    } catch (err) {
+      setCreateError(err instanceof Error ? err.message : 'Failed to create session')
+    } finally {
+      setCreating(false)
+    }
+  }
+
   const filteredSessions = statusFilter === 'all'
     ? sessions
     : sessions.filter((s) => {
@@ -270,6 +389,63 @@ function App() {
             <h1 className="text-xl font-bold text-slate-900">Devin Task Dashboard</h1>
           </div>
           <div className="flex items-center gap-3">
+            <Dialog open={createOpen} onOpenChange={setCreateOpen}>
+              <DialogTrigger asChild>
+                <button className="flex items-center gap-2 px-3 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
+                  <Plus className="w-4 h-4" />
+                  New Task
+                </button>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-lg">
+                <DialogHeader>
+                  <DialogTitle>Create New Devin Task</DialogTitle>
+                  <DialogDescription>
+                    Describe what you want Devin to do. A new session will be created and Devin will start working on it.
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="space-y-4 py-4">
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-slate-700">Title (optional)</label>
+                    <Input
+                      value={newTitle}
+                      onChange={(e) => setNewTitle(e.target.value)}
+                      placeholder="e.g. Fix login bug, Add dark mode..."
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-slate-700">Task Description *</label>
+                    <Textarea
+                      value={newPrompt}
+                      onChange={(e) => setNewPrompt(e.target.value)}
+                      placeholder="Describe the task in detail. Include any relevant context, file paths, or requirements..."
+                      rows={5}
+                    />
+                  </div>
+                  {createError && (
+                    <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-red-700 text-sm">
+                      {createError}
+                    </div>
+                  )}
+                </div>
+                <DialogFooter>
+                  <button
+                    onClick={() => setCreateOpen(false)}
+                    className="px-4 py-2 text-sm border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleCreateSession}
+                    disabled={creating || !newPrompt.trim()}
+                    className="flex items-center gap-2 px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {creating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
+                    {creating ? 'Creating...' : 'Create Task'}
+                  </button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+
             <div className="flex items-center gap-2">
               <Users className="w-4 h-4 text-slate-500" />
               <select
@@ -381,7 +557,7 @@ function App() {
             ) : filteredSessions.length === 0 ? (
               <div className="text-center py-12 text-slate-500">
                 {sessions.length === 0
-                  ? 'No sessions found. Start a new Devin session to see it here!'
+                  ? 'No sessions found. Click "New Task" to create your first Devin session!'
                   : 'No sessions match the current filter.'}
               </div>
             ) : (
@@ -399,7 +575,7 @@ function App() {
                 </TableHeader>
                 <TableBody>
                   {filteredSessions.map((session) => (
-                    <SessionRow key={session.session_id} session={session} />
+                    <SessionRow key={session.session_id} session={session} onRefresh={() => fetchSessions(true)} />
                   ))}
                 </TableBody>
               </Table>
