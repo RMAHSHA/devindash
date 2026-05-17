@@ -11,6 +11,7 @@
 - Try for create PR after creating yml files
 - Verified automatic PR creation workflow
 - GitHub API-based automatic PR creation
+- Workflow file on default branch for GitHub Actions
 
 #### Changed
 
