@@ -5,8 +5,9 @@
 ### [Unreleased]
 
 #### Added
-- Initial project setup with React + TypeScript + Vite
-- Devin dashboard frontend scaffolding
+- Check for git action and approval process
+- The release will focus on git action
+- Try for create PR
 
 #### Changed
 
