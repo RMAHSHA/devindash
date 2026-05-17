@@ -1,0 +1,44 @@
+name: Auto Create Pull Request
+
+on:
+  push:
+    branches:
+      - 'update/**'
+      - 'feature/**'
+
+permissions:
+  pull-requests: write
+  contents: read
+
+jobs:
+  create-pr:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Create Pull Request
+        uses: peter-evans/create-pull-request@v5
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit-message: 'PR Auto-generated from ${{ github.ref }}'
+          title: 'Auto PR: ${{ github.ref_name }}'
+          body: |
+            ## Automated Pull Request
+            
+            This PR was automatically created from branch: `${{ github.ref_name }}`
+            
+            **Changes:**
+            - Review the files changed in this PR
+            - Make any necessary adjustments
+            - Approve and merge when ready
+            
+            Created by GitHub Actions workflow
+          branch: ${{ github.ref_name }}
+          base: ${{ github.event.repository.default_branch }}
+          delete-branch: false
+          labels: |
+            automated
+            needs-review
