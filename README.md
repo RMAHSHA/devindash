@@ -9,6 +9,7 @@
 - The release will focus on git action
 - Try for create PR
 - Try for create PR after creating yml files
+- Verified automatic PR creation workflow
 
 #### Changed
 
