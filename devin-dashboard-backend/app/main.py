@@ -1,5 +1,6 @@
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
 from typing import Optional
 import httpx
 import os
@@ -73,6 +74,44 @@ async def get_session(session_id: str):
         resp = await client.get(
             f"{DEVIN_API_BASE}/sessions/{session_id}",
             headers=get_headers(),
+        )
+        if resp.status_code != 200:
+            raise HTTPException(status_code=resp.status_code, detail=resp.text)
+        return resp.json()
+
+
+class CreateSessionRequest(BaseModel):
+    prompt: str
+    title: Optional[str] = None
+
+
+class SendMessageRequest(BaseModel):
+    message: str
+
+
+@app.post("/api/sessions")
+async def create_session(req: CreateSessionRequest):
+    async with httpx.AsyncClient(timeout=30.0) as client:
+        body: dict = {"prompt": req.prompt}
+        if req.title:
+            body["title"] = req.title
+        resp = await client.post(
+            f"{DEVIN_API_BASE}/sessions",
+            headers=get_headers(),
+            json=body,
+        )
+        if resp.status_code != 200:
+            raise HTTPException(status_code=resp.status_code, detail=resp.text)
+        return resp.json()
+
+
+@app.post("/api/sessions/{session_id}/message")
+async def send_message(session_id: str, req: SendMessageRequest):
+    async with httpx.AsyncClient(timeout=30.0) as client:
+        resp = await client.post(
+            f"{DEVIN_API_BASE}/sessions/{session_id}/message",
+            headers=get_headers(),
+            json={"message": req.message},
         )
         if resp.status_code != 200:
             raise HTTPException(status_code=resp.status_code, detail=resp.text)
